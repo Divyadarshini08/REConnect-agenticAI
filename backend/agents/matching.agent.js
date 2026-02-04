@@ -7,15 +7,13 @@ import db from "../db.js";
 export const findMatchingAlumni = async (studentId) => {
   try {
     // 1. Get student skills and interests
-    const [[student]] = await db.query(
-      "SELECT skills, interests FROM student_profile WHERE student_id = ?",
-      [studentId]
-    );
+    const studentStmt = db.prepare('SELECT skills, interests FROM student_profile WHERE student_id = ?');
+    const student = studentStmt.get(studentId);
 
     if (!student) return [];
 
     // 2. Find matching alumni with free slots based on skills/interests
-    const [alumni] = await db.query(`
+    const alumniStmt = db.prepare(`
       SELECT 
         u.user_id AS alumni_id,
         u.name,
@@ -25,10 +23,11 @@ export const findMatchingAlumni = async (studentId) => {
       FROM users u
       JOIN alumni_profile ap ON u.user_id = ap.alumni_id
       JOIN availability av ON av.alumni_id = u.user_id
-      WHERE av.is_booked = false
+      WHERE av.is_booked = 0
       AND (ap.domain LIKE ? OR ap.expertise LIKE ?)
       GROUP BY u.user_id
-    `, [`%${student.interests}%`, `%${student.skills}%`]);
+    `);
+    const alumni = alumniStmt.all(`%${student.interests}%`, `%${student.skills}%`);
 
     return alumni;
   } catch (error) {

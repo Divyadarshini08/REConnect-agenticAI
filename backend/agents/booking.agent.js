@@ -2,16 +2,12 @@ import db from "../db.js";
 
 export const createBooking = async (studentId, availabilityId) => {
   try {
-    const [[slot]] = await db.query(
-      "SELECT * FROM availability WHERE availability_id=? AND is_booked=false",
-      [availabilityId]
-    );
+    const slotStmt = db.prepare('SELECT * FROM availability WHERE availability_id=? AND is_booked=0');
+    const slot = slotStmt.get(availabilityId);
     if (!slot) return false;
 
-    await db.query(
-      "INSERT INTO bookings(student_id, alumni_id, availability_id, status) VALUES (?, ?, ?, 'pending')",
-      [studentId, slot.alumni_id, availabilityId]
-    );
+    const stmt = db.prepare('INSERT INTO bookings(student_id, alumni_id, availability_id, status) VALUES (?, ?, ?, ?)');
+    stmt.run(studentId, slot.alumni_id, availabilityId, 'pending');
 
     return true;
   } catch (error) {

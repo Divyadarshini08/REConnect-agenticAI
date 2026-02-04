@@ -2,15 +2,17 @@ import bcrypt from "bcrypt";
 import db from "../db.js";
 
 export const authenticateUser = async (email, password) => {
-  const [rows] = await db.query(
-    "SELECT * FROM users WHERE email = ?",
-    [email]
-  );
+  try {
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const user = stmt.get(email);
 
-  if (rows.length === 0) return null;
+    if (!user) return null;
 
-  const user = rows[0];
-  const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
-  return isMatch ? user : null;
+    return isMatch ? user : null;
+  } catch (error) {
+    console.error('Authentication error:', error.message);
+    return null;
+  }
 };

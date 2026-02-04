@@ -9,15 +9,11 @@ const router = express.Router();
 router.get("/profile/:id", async (req, res) => {
   const studentId = req.params.id;
 
-  const [[user]] = await db.query(
-    "SELECT name, email FROM users WHERE user_id = ?",
-    [studentId]
-  );
+  const userStmt = db.prepare('SELECT name, email FROM users WHERE user_id = ?');
+  const user = userStmt.get(studentId);
 
-  const [[profile]] = await db.query(
-    "SELECT skills, interests, linkedin_url, coding_url, resume_url FROM student_profile WHERE student_id = ?",
-    [studentId]
-  );
+  const profileStmt = db.prepare('SELECT skills, interests, linkedin_url, coding_url, resume_url FROM student_profile WHERE student_id = ?');
+  const profile = profileStmt.get(studentId);
 
   res.json({
     name: user?.name || "",
@@ -43,18 +39,10 @@ router.post("/profile", async (req, res) => {
     resume_url,
   } = req.body;
 
-  await db.query(
-    `INSERT INTO student_profile
+  const stmt = db.prepare(`INSERT OR REPLACE INTO student_profile
      (student_id, skills, interests, linkedin_url, coding_url, resume_url)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       skills=VALUES(skills),
-       interests=VALUES(interests),
-       linkedin_url=VALUES(linkedin_url),
-       coding_url=VALUES(coding_url),
-       resume_url=VALUES(resume_url)`,
-    [student_id, skills, interests, linkedin_url, coding_url, resume_url]
-  );
+     VALUES (?, ?, ?, ?, ?, ?)`);
+  stmt.run(student_id, skills, interests, linkedin_url, coding_url, resume_url);
 
   res.json({ message: "Student profile updated" });
 });
@@ -65,17 +53,14 @@ router.post("/profile", async (req, res) => {
 router.get("/dashboard/:studentId", async (req, res) => {
   const studentId = req.params.studentId;
 
-  const [[student]] = await db.query(
-    "SELECT skills, interests FROM student_profile WHERE student_id=?",
-    [studentId]
-  );
+  const studentStmt = db.prepare('SELECT skills, interests FROM student_profile WHERE student_id=?');
+  const student = studentStmt.get(studentId);
 
   if (!student) {
     return res.json({ alumni: 0, sessions: 0 });
   }
 
-  const [[alumniCount]] = await db.query(
-    `
+  const alumniCountStmt = db.prepare(`
     SELECT COUNT(DISTINCT u.user_id) AS count
     FROM users u
     JOIN alumni_profile ap ON ap.alumni_id = u.user_id
@@ -83,18 +68,15 @@ router.get("/dashboard/:studentId", async (req, res) => {
     WHERE u.role='alumni'
       AND av.is_booked=0
       AND (ap.domain LIKE ? OR ap.expertise LIKE ?)
-    `,
-    [`%${student.interests}%`, `%${student.skills}%`]
-  );
+  `);
+  const alumniCount = alumniCountStmt.get(`%${student.interests}%`, `%${student.skills}%`);
 
-  const [[sessionsCount]] = await db.query(
-    "SELECT COUNT(*) AS count FROM bookings WHERE student_id=?",
-    [studentId]
-  );
+  const sessionsCountStmt = db.prepare('SELECT COUNT(*) AS count FROM bookings WHERE student_id=?');
+  const sessionsCount = sessionsCountStmt.get(studentId);
 
   res.json({
-    alumni: alumniCount.count,
-    sessions: sessionsCount.count,
+    alumni: alumniCount?.count || 0,
+    sessions: sessionsCount?.count || 0,
   });
 });
 
@@ -104,15 +86,12 @@ router.get("/dashboard/:studentId", async (req, res) => {
 router.get("/available-alumni/:studentId", async (req, res) => {
   const studentId = req.params.studentId;
 
-  const [[student]] = await db.query(
-    "SELECT skills, interests FROM student_profile WHERE student_id=?",
-    [studentId]
-  );
+  const studentStmt = db.prepare('SELECT skills, interests FROM student_profile WHERE student_id=?');
+  const student = studentStmt.get(studentId);
 
   if (!student) return res.json([]);
 
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT DISTINCT
       u.user_id AS alumni_id,
       u.name,
@@ -124,9 +103,8 @@ router.get("/available-alumni/:studentId", async (req, res) => {
     WHERE u.role='alumni'
       AND av.is_booked=0
       AND (ap.domain LIKE ? OR ap.expertise LIKE ?)
-    `,
-    [`%${student.interests}%`, `%${student.skills}%`]
-  );
+  `);
+  const rows = rowsStmt.all(`%${student.interests}%`, `%${student.skills}%`);
 
   res.json(rows);
 });
@@ -135,14 +113,12 @@ router.get("/available-alumni/:studentId", async (req, res) => {
  * ALUMNI SLOTS (student view)
  */
 router.get("/alumni-slots/:alumniId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT availability_id, date, start_time, end_time
     FROM availability
     WHERE alumni_id=? AND is_booked=0
-    `,
-    [req.params.alumniId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.alumniId);
 
   res.json(rows);
 });
@@ -151,8 +127,7 @@ router.get("/alumni-slots/:alumniId", async (req, res) => {
  * STUDENT SESSIONS
  */
 router.get("/sessions/:studentId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT b.booking_id, b.status,
            u.name AS alumni_name,
            av.date, av.start_time, av.end_time
@@ -161,9 +136,8 @@ router.get("/sessions/:studentId", async (req, res) => {
     JOIN availability av ON av.availability_id = b.availability_id
     WHERE b.student_id = ?
     ORDER BY av.date
-    `,
-    [req.params.studentId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.studentId);
 
   res.json(rows);
 });
@@ -172,8 +146,7 @@ router.get("/sessions/:studentId", async (req, res) => {
  * STUDENT UPCOMING SESSIONS
  */
 router.get("/upcoming/:studentId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT b.booking_id,
            b.date, b.start_time, b.end_time,
            b.meet_link,
@@ -185,9 +158,8 @@ router.get("/upcoming/:studentId", async (req, res) => {
     WHERE b.student_id = ?
       AND b.status = 'approved'
     ORDER BY b.date
-    `,
-    [req.params.studentId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.studentId);
 
   res.json(rows);
 });

@@ -15,17 +15,15 @@ router.post("/agent/book", async (req, res) => {
     );
 
     // Persist agent decision
-    await db.query(
-      `INSERT INTO bookings 
-       (student_id, alumni_id, slot, intent, policy)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        student_id,
-        data.matched_alumni.id,
-        data.scheduled_slot,
-        data.intent,
-        data.system_policy
-      ]
+    const stmt = db.prepare(`INSERT INTO bookings 
+     (student_id, alumni_id, slot, intent, policy)
+     VALUES (?, ?, ?, ?, ?)`);
+    stmt.run(
+      student_id,
+      data.matched_alumni.id,
+      data.scheduled_slot,
+      data.intent,
+      data.system_policy
     );
 
     res.json({

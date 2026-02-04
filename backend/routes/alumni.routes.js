@@ -10,20 +10,16 @@ const router = express.Router();
 router.get("/profile/:id", async (req, res) => {
   const alumniId = req.params.id;
 
-  const [[user]] = await db.query(
-    "SELECT name, email FROM users WHERE user_id=?",
-    [alumniId]
-  );
+  const userStmt = db.prepare('SELECT name, email FROM users WHERE user_id=?');
+  const user = userStmt.get(alumniId);
 
-  const [[profile]] = await db.query(
-    `
+  const profileStmt = db.prepare(`
     SELECT domain, company, expertise,
            linkedin_url, coding_url, resume_url
     FROM alumni_profile
     WHERE alumni_id=?
-    `,
-    [alumniId]
-  );
+  `);
+  const profile = profileStmt.get(alumniId);
 
   // ✅ SAFE RESPONSE (handles first-time users)
   res.json({
@@ -49,29 +45,20 @@ router.post("/profile", async (req, res) => {
     resume_url,
   } = req.body;
 
-  await db.query(
-    `
-    INSERT INTO alumni_profile
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO alumni_profile
       (alumni_id, domain, company, expertise,
        linkedin_url, coding_url, resume_url)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      domain=VALUES(domain),
-      company=VALUES(company),
-      expertise=VALUES(expertise),
-      linkedin_url=VALUES(linkedin_url),
-      coding_url=VALUES(coding_url),
-      resume_url=VALUES(resume_url)
-    `,
-    [
-      alumni_id,
-      domain,
-      company,
-      expertise,
-      linkedin_url,
-      coding_url,
-      resume_url,
-    ]
+  `);
+  stmt.run(
+    alumni_id,
+    domain,
+    company,
+    expertise,
+    linkedin_url,
+    coding_url,
+    resume_url,
   );
 
   res.json({ message: "Alumni profile updated" });
@@ -83,27 +70,23 @@ router.post("/profile", async (req, res) => {
 router.post("/availability", async (req, res) => {
   const { alumni_id, date, start_time, end_time } = req.body;
 
-  await db.query(
-    `
+  const stmt = db.prepare(`
     INSERT INTO availability (alumni_id, date, start_time, end_time)
     VALUES (?, ?, ?, ?)
-    `,
-    [alumni_id, date, start_time, end_time]
-  );
+  `);
+  stmt.run(alumni_id, date, start_time, end_time);
 
   res.json({ message: "Availability added" });
 });
 
 router.get("/availability/:alumniId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT availability_id, date, start_time, end_time
     FROM availability
     WHERE alumni_id=?
     ORDER BY date, start_time
-    `,
-    [req.params.alumniId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.alumniId);
 
   res.json(rows);
 });
@@ -113,8 +96,7 @@ router.get("/availability/:alumniId", async (req, res) => {
 ========================= */
 
 router.get("/requests/:alumniId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT b.booking_id,
            u.name AS student_name,
            a.date, a.start_time, a.end_time,
@@ -123,9 +105,8 @@ router.get("/requests/:alumniId", async (req, res) => {
     JOIN users u ON u.user_id = b.student_id
     JOIN availability a ON a.availability_id = b.availability_id
     WHERE b.alumni_id=? AND b.status='pending'
-    `,
-    [req.params.alumniId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.alumniId);
 
   res.json(rows);
 });
@@ -139,14 +120,12 @@ router.post("/requests/update", async (req, res) => {
 
   if (status === "approved") {
     // 1️⃣ get slot details before deleting availability
-    const [[slot]] = await db.query(
-      `
+    const slotStmt = db.prepare(`
       SELECT date, start_time, end_time
       FROM availability
       WHERE availability_id=?
-      `,
-      [availability_id]
-    );
+    `);
+    const slot = slotStmt.get(availability_id);
 
     // 2️⃣ generate Google Meet link (mock)
     const meetLink = `https://meet.google.com/${Math.random()
@@ -158,37 +137,30 @@ router.post("/requests/update", async (req, res) => {
       .substring(2, 7)}`;
 
     // 3️⃣ update booking with slot + meet link
-    await db.query(
-  `
-  UPDATE bookings
-  SET status='approved',
-      date=?,
-      start_time=?,
-      end_time=?,
-      meet_link=?
-  WHERE booking_id=?
-  `,
-  [
-    slot.date,
-    slot.start_time,
-    slot.end_time,
-    meetLink,
-    booking_id,
-  ]
-);
-
+    const updateStmt = db.prepare(`
+    UPDATE bookings
+    SET status='approved',
+        date=?,
+        start_time=?,
+        end_time=?,
+        meet_link=?
+    WHERE booking_id=?
+    `);
+    updateStmt.run(
+      slot.date,
+      slot.start_time,
+      slot.end_time,
+      meetLink,
+      booking_id,
+    );
 
     // 4️⃣ delete availability so it cannot be reused
-    await db.query(
-      "DELETE FROM availability WHERE availability_id=?",
-      [availability_id]
-    );
+    const deleteStmt = db.prepare('DELETE FROM availability WHERE availability_id=?');
+    deleteStmt.run(availability_id);
   } else {
     // rejected
-    await db.query(
-      "UPDATE bookings SET status=? WHERE booking_id=?",
-      [status, booking_id]
-    );
+    const updateStmt = db.prepare('UPDATE bookings SET status=? WHERE booking_id=?');
+    updateStmt.run(status, booking_id);
   }
 
   res.json({ message: `Booking ${status}` });
@@ -199,8 +171,7 @@ router.post("/requests/update", async (req, res) => {
 ========================= */
 
 router.get("/upcoming/:alumniId", async (req, res) => {
-  const [rows] = await db.query(
-    `
+  const rowsStmt = db.prepare(`
     SELECT b.booking_id,
            u.name AS student_name,
            b.date, b.start_time, b.end_time
@@ -209,9 +180,8 @@ router.get("/upcoming/:alumniId", async (req, res) => {
     WHERE b.alumni_id=?
       AND b.status='approved'
     ORDER BY b.date
-    `,
-    [req.params.alumniId]
-  );
+  `);
+  const rows = rowsStmt.all(req.params.alumniId);
 
   res.json(rows);
 });
@@ -223,14 +193,12 @@ router.get("/upcoming/:alumniId", async (req, res) => {
 router.post("/sessions/complete", async (req, res) => {
   const { booking_id } = req.body;
 
-  await db.query(
-    `
+  const stmt = db.prepare(`
     UPDATE bookings
     SET status='completed'
     WHERE booking_id=?
-    `,
-    [booking_id]
-  );
+  `);
+  stmt.run(booking_id);
 
   res.json({ message: "Session marked as completed" });
 });
@@ -242,20 +210,14 @@ router.post("/sessions/complete", async (req, res) => {
 router.get("/dashboard/:alumniId", async (req, res) => {
   const alumniId = req.params.alumniId;
 
-  const [[pending]] = await db.query(
-    "SELECT COUNT(*) c FROM bookings WHERE alumni_id=? AND status='pending'",
-    [alumniId]
-  );
+  const pendingStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const pending = pendingStmt.get(alumniId, 'pending');
 
-  const [[upcoming]] = await db.query(
-    "SELECT COUNT(*) c FROM bookings WHERE alumni_id=? AND status='approved'",
-    [alumniId]
-  );
+  const upcomingStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const upcoming = upcomingStmt.get(alumniId, 'approved');
 
-  const [[completed]] = await db.query(
-    "SELECT COUNT(*) c FROM bookings WHERE alumni_id=? AND status='completed'",
-    [alumniId]
-  );
+  const completedStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const completed = completedStmt.get(alumniId, 'completed');
 
   res.json({
     pending: pending.c,

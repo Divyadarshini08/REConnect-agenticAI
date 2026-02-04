@@ -16,14 +16,13 @@ A mentorship platform connecting students with alumni for career guidance and me
 
 - **Frontend**: React 19, Vite, JavaScript
 - **Backend**: Node.js, Express.js
-- **Database**: MySQL
+- **Database**: SQLite
 - **Authentication**: JWT, bcrypt
 - **AI/Agents**: n8n integration
 
 ## Prerequisites
 
 - Node.js (v18 or higher)
-- MySQL server
 - n8n (for agent features)
 
 ## Setup Instructions
@@ -36,9 +35,9 @@ A mentorship platform connecting students with alumni for career guidance and me
    ```
 
 3. Set up the database:
-   - Create a MySQL database named `reconnect`
-   - Run the schema from `database/schema.sql`
-   - Update database credentials in `backend/.env` if needed
+   - The application will automatically create the SQLite database file
+   - Tables will be created automatically on first run
+   - Update database path in `backend/.env` if needed
 
 4. Configure environment variables:
    - Copy the default environment files and customize as needed
@@ -58,7 +57,7 @@ A mentorship platform connecting students with alumni for career guidance and me
 
 The application uses several environment variables that can be configured in the `.env` files:
 
-- `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` - Database connection settings
+- `DB_PATH` - Path to the SQLite database file
 - `JWT_SECRET` - Secret for JWT token signing
 - `PORT` - Port for the backend server
 - `N8N_WEBHOOK_URL` - URL for n8n webhook integration

@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
 
 import authRoutes from "./routes/auth.routes.js";
 import studentRoutes from "./routes/student.routes.js";
@@ -14,14 +16,12 @@ import agentRoutes from "./routes/agent.routes.js";
 
 const app = express();
 app.use(cors({
-  origin: "http://localhost:5173", // React dev server
+  origin: process.env.FRONTEND_URL || "http://localhost:5173", // React dev server
   methods: ["GET", "POST"],
   credentials: true
 }));
-app.use(cors());
-app.use(responseTimeLogger); 
 app.use(express.json());
-
+app.use(responseTimeLogger); 
 
 
 app.use("/api", agentRoutes);
@@ -33,7 +33,7 @@ app.use("/api/alumni", alumniRoutes);
 app.use("/api/booking", bookingRoutes);
 
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+  console.log(`✅ Backend running on port ${PORT}`);
 });

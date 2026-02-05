@@ -1,18 +1,18 @@
+// db.js - Database module using sql.js
 import initSqlJs from 'sql.js';
 import fs from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
 
-let db;
-let SQL;
+// Global variables to hold the database and SQL module
+let db = null;
+let SQL = null;
 
 // Initialize SQLite database with sql.js
-async function initializeDb() {
+async function initializeDatabase() {
   try {
     // Initialize SQL.js
-    SQL = await initSqlJs({
-      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
-    });
+    SQL = await initSqlJs();
 
     // Check if database file exists
     const dbPath = process.env.DB_PATH || './reconnect.db';
@@ -129,7 +129,7 @@ async function initializeDb() {
     setInterval(() => {
       try {
         const data = db.export();
-        const buffer = new Buffer.from(data);
+        const buffer = new Uint8Array(data);
         fs.writeFileSync(process.env.DB_PATH || './reconnect.db', buffer);
       } catch (saveErr) {
         console.error('Error saving database:', saveErr.message);
@@ -143,52 +143,30 @@ async function initializeDb() {
   }
 }
 
-// Create a wrapper class to provide the same interface as better-sqlite3
-class DatabaseWrapper {
-  constructor() {
-    this.db = null;
-  }
+// We'll create a module-level promise that initializes the database
+const dbInitPromise = initializeDatabase();
 
-  async init() {
-    this.db = await initializeDb();
-  }
+// Create a wrapper object that delays operations until DB is initialized
+const dbWrapper = {
+  async prepare(sql) {
+    const database = await dbInitPromise;
+    const stmt = database.prepare(sql);
+    return {
+      get: (...params) => stmt.getAsObject(...params),
+      all: (...params) => stmt.all(...params),
+      run: (...params) => stmt.run(...params)
+    };
+  },
 
-  prepare(sql) {
-    return new StatementWrapper(this.db, sql);
-  }
+  async exec(sql) {
+    const database = await dbInitPromise;
+    return database.run(sql);
+  },
 
-  exec(sql) {
-    this.db.run(sql);
+  async run(sql, ...params) {
+    const database = await dbInitPromise;
+    return database.run(sql, ...params);
   }
-
-  run(sql, ...params) {
-    return this.db.run(sql, ...params);
-  }
-
-  export() {
-    return this.db.export();
-  }
-}
-
-class StatementWrapper {
-  constructor(db, sql) {
-    this.stmt = db.prepare(sql);
-  }
-
-  get(...params) {
-    return this.stmt.get(...params);
-  }
-
-  all(...params) {
-    return this.stmt.all(...params);
-  }
-
-  run(...params) {
-    return this.stmt.run(...params);
-  }
-}
-
-const dbWrapper = new DatabaseWrapper();
-await dbWrapper.init();
+};
 
 export default dbWrapper;

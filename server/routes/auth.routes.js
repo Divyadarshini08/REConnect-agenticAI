@@ -12,7 +12,8 @@ router.post('/register', async (req, res) => {
     const { name, email, password, role } = req.body;
 
     // Check if user already exists
-    const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const stmt = await db.prepare('SELECT * FROM users WHERE email = ?');
+    const existingUser = stmt.get(email);
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -22,7 +23,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Insert user
-    const insertUser = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
+    const insertUser = await db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
     const result = insertUser.run(name, email, passwordHash, role);
 
     // Generate JWT
@@ -54,7 +55,8 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const stmt = await db.prepare('SELECT * FROM users WHERE email = ?');
+    const user = stmt.get(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

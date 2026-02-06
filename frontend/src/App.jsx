@@ -3,7 +3,7 @@ import Navbar from "./components/Navbar";
 
 // Auth
 import SimpleLogin from "./pages/auth/SimpleLogin";
-import Register from "./pages/auth/Register";
+import SimpleRegister from "./pages/auth/SimpleRegister";
 
 // Student pages
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -34,7 +34,7 @@ function App() {
 
         {/* Auth */}
         <Route path="/login" element={<SimpleLogin />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<SimpleRegister />} />
 
         {/* Student */}
         <Route path="/student/dashboard" element={<StudentDashboard />} />

@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 
 // Auth
-import Login from "./pages/auth/Login";
+import SimpleLogin from "./pages/auth/SimpleLogin";
 import Register from "./pages/auth/Register";
 
 // Student pages
@@ -20,8 +20,6 @@ import Requests from "./pages/alumni/Requests";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
 import UpcomingSessions from "./pages/alumni/UpcomingSessions";
 
-
-
 function App() {
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -35,7 +33,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
 
         {/* Auth */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<SimpleLogin />} />
         <Route path="/register" element={<Register />} />
 
         {/* Student */}
@@ -46,7 +44,6 @@ function App() {
         <Route path="/student/alumni/:alumniId" element={<AlumniSlots />} />
         <Route path="/student/upcoming-sessions" element={<StudentUpcomingSessions />} />
         
-
         {/* Alumni */}
         <Route path="/alumni/upcoming-sessions" element={<UpcomingSessions />} />
         <Route path="/alumni/dashboard" element={<AlumniDashboard />} />

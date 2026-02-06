@@ -20,7 +20,10 @@ export const EXAMPLE_QUERIES = [
     "Need mentorship in Cloud Computing and AWS architecture design",
     "Looking for UI/UX design expertise and portfolio guidance",
     "Want mobile app development mentorship for iOS projects",
-    "Need blockchain and smart contract development guidance"
+    "Need blockchain and smart contract development guidance",
+    "Help with JavaScript frameworks and full-stack development",
+    "Want advice on career transition to product management",
+    "Looking for senior engineer mentorship in software architecture"
 ];
 
 export const PROFESSIONAL_TITLES = [
@@ -31,7 +34,11 @@ export const PROFESSIONAL_TITLES = [
     "Solution Architect",
     "Data Scientist",
     "Product Manager",
-    "Technical Director"
+    "Technical Director",
+    "CTO",
+    "VP of Engineering",
+    "Lead Developer",
+    "Senior Data Scientist"
 ];
 
 export const AVAILABILITY_STATUS = {

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   DOMAIN_KEYWORDS,
   EXAMPLE_QUERIES,
+  PROFESSIONAL_TITLES,
   AVAILABILITY_STATUS
 } from "../../constants/intentAgentData";
 
@@ -54,27 +55,53 @@ const IntentAgentPage = () => {
   const [showExamples, setShowExamples] = useState(true);
   const [examples, setExamples] = useState(EXAMPLE_QUERIES);
   const [keywords, setKeywords] = useState([]);
+  const [matchedAlumni, setMatchedAlumni] = useState([]);
   
   const token = localStorage.getItem('token');
 
   // Load example queries on component mount
   useEffect(() => {
-    loadExamples();
+    setExamples(EXAMPLE_QUERIES);
   }, []);
-  
-  const loadExamples = async () => {
-    try {
-      const response = await apiService.get('/api/intent/examples', token);
-      if (response.success) {
-        setExamples(response.examples);
+
+  // Generate mock alumni data based on domain keywords
+  const generateMockAlumniData = () => {
+    const alumniData = [];
+    const companies = [
+      "Google", "Microsoft", "Amazon", "Meta", "Apple", 
+      "Netflix", "Tesla", "IBM", "Oracle", "Salesforce"
+    ];
+    
+    Object.entries(DOMAIN_KEYWORDS).forEach(([domainKey, keywords], index) => {
+      const domainName = domainKey.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      // Create 2-3 alumni per domain
+      const alumniCount = 2 + Math.floor(Math.random() * 2);
+      
+      for (let i = 0; i < alumniCount; i++) {
+        const alumniId = index * 10 + i + 1;
+        const companyName = companies[Math.floor(Math.random() * companies.length)];
+        const title = PROFESSIONAL_TITLES[Math.floor(Math.random() * PROFESSIONAL_TITLES.length)];
+        
+        alumniData.push({
+          id: alumniId,
+          name: `${['Alex', 'Taylor', 'Jordan', 'Casey', 'Riley', 'Morgan', 'Cameron', 'Drew'][Math.floor(Math.random() * 8)]} ${['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'][Math.floor(Math.random() * 8)]}`,
+          domain: domainName,
+          company: companyName,
+          expertise: keywords.slice(0, 3).join(', '),
+          title: title,
+          relevanceScore: 0.7 + Math.random() * 0.25, // 70-95%
+          availability: Math.floor(Math.random() * 6), // 0-5 slots
+          matchedKeywords: [],
+          linkedin_url: `https://linkedin.com/in/alumni${alumniId}`
+        });
       }
-    } catch (err) {
-      console.error('Error loading examples:', err);
-      setExamples(EXAMPLE_QUERIES);
-    }
+    });
+    
+    return alumniData;
   };
 
-  const handleQuerySubmit = async () => {
+  const handleQuerySubmit = () => {
     if (!query.trim()) {
       showMessage("Please enter a detailed query about your mentoring needs", "error");
       return;
@@ -85,34 +112,102 @@ const IntentAgentPage = () => {
     setShowExamples(false);
     setResults([]);
     setKeywords([]);
+    setMatchedAlumni([]);
 
-    try {
-      const response = await apiService.post('/api/intent/match', { query }, token);
-      
-      if (response.success) {
-        setResults(response.matches || []);
-        setKeywords(response.keywords || []);
+    // Simulate processing delay
+    setTimeout(() => {
+      try {
+        // Extract keywords from query
+        const extractedKeywords = extractKeywordsFromQuery(query);
+        setKeywords(extractedKeywords);
         
-        if (response.matches && response.matches.length === 0) {
-          showMessage(response.message || "No matching mentors found. Try different keywords or browse our expertise areas.", "warning");
-        } else if (response.matches && response.matches.length > 0) {
-          showMessage(`Found ${response.matches.length} matching mentors!`, "success");
+        // Find matching alumni
+        const matchedResults = findMatchingAlumni(extractedKeywords);
+        setMatchedAlumni(matchedResults);
+        setResults(matchedResults);
+        
+        if (matchedResults.length === 0) {
+          showMessage("No matching mentors found. Try different keywords or browse our expertise areas.", "warning");
+        } else {
+          showMessage(`Found ${matchedResults.length} matching mentors!`, "success");
         }
-      } else {
-        showMessage(response.message || "Unable to process your request. Please try again.", "error");
+      } catch (err) {
+        showMessage("Error processing your request. Please try again.", "error");
+        console.error("Processing error:", err);
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (err) {
-      showMessage("Network error: Unable to connect to the mentoring service", "error");
-      console.error("API error:", err);
-    } finally {
-      setIsProcessing(false);
-    }
+    }, 800);
+  };
+
+  // Extract keywords from user query
+  const extractKeywordsFromQuery = (queryText) => {
+    const normalizedQuery = queryText.toLowerCase();
+    const foundKeywords = [];
+    
+    Object.entries(DOMAIN_KEYWORDS).forEach(([domainKey, domainKeywords]) => {
+      domainKeywords.forEach(keyword => {
+        const normalizedKeyword = keyword.toLowerCase();
+        if (normalizedQuery.includes(normalizedKeyword)) {
+          foundKeywords.push({
+            term: keyword,
+            type: domainKey.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            domain: domainKey
+          });
+        }
+      });
+    });
+    
+    return foundKeywords;
+  };
+
+  // Find alumni matching the extracted keywords
+  const findMatchingAlumni = (keywords) => {
+    if (keywords.length === 0) return [];
+    
+    const allAlumni = generateMockAlumniData();
+    const matchedAlumni = [];
+    
+    keywords.forEach(keywordObj => {
+      const domainKey = keywordObj.domain;
+      const domainName = keywordObj.type;
+      
+      // Find alumni in this domain
+      const domainAlumni = allAlumni.filter(alumni => 
+        alumni.domain.toLowerCase() === domainName.toLowerCase()
+      );
+      
+      // Add matched keywords to each alumni
+      domainAlumni.forEach(alumni => {
+        const existingAlumni = matchedAlumni.find(a => a.id === alumni.id);
+        if (existingAlumni) {
+          // Add to existing match
+          if (!existingAlumni.matchedKeywords.find(kw => kw.term === keywordObj.term)) {
+            existingAlumni.matchedKeywords.push(keywordObj);
+            existingAlumni.relevanceScore = Math.min(0.95, existingAlumni.relevanceScore + 0.1);
+          }
+        } else {
+          // Add new match
+          matchedAlumni.push({
+            ...alumni,
+            matchedKeywords: [keywordObj]
+          });
+        }
+      });
+    });
+    
+    // Sort by relevance score
+    return matchedAlumni.sort((a, b) => b.relevanceScore - a.relevanceScore);
   };
 
   const handleExampleClick = (exampleQuery) => {
     setQuery(exampleQuery);
     setShowExamples(false);
     setMessage({ text: "", type: "" });
+    // Auto-submit the example query
+    setTimeout(() => {
+      handleQuerySubmit();
+    }, 300);
   };
 
   const handleViewProfile = (alumniId) => {

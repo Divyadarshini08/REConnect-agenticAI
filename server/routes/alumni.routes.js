@@ -1,4 +1,5 @@
 import express from "express";
+import { authenticateToken } from "../middleware/auth.middleware.js";
 import db from "../db.js";
 
 const router = express.Router();
@@ -7,13 +8,13 @@ const router = express.Router();
    ALUMNI PROFILE
 ========================= */
 
-router.get("/profile/:id", async (req, res) => {
+router.get("/profile/:id", authenticateToken, async (req, res) => {
   const alumniId = req.params.id;
 
-  const userStmt = db.prepare('SELECT name, email FROM users WHERE user_id=?');
+  const userStmt = await db.prepare('SELECT name, email FROM users WHERE user_id=?');
   const user = userStmt.get(alumniId);
 
-  const profileStmt = db.prepare(`
+  const profileStmt = await db.prepare(`
     SELECT domain, company, expertise,
            linkedin_url, coding_url, resume_url
     FROM alumni_profile
@@ -34,7 +35,7 @@ router.get("/profile/:id", async (req, res) => {
   });
 });
 
-router.post("/profile", async (req, res) => {
+router.post("/profile", authenticateToken, async (req, res) => {
   const {
     alumni_id,
     domain,
@@ -45,7 +46,7 @@ router.post("/profile", async (req, res) => {
     resume_url,
   } = req.body;
 
-  const stmt = db.prepare(`
+  const stmt = await db.prepare(`
     INSERT OR REPLACE INTO alumni_profile
       (alumni_id, domain, company, expertise,
        linkedin_url, coding_url, resume_url)
@@ -67,10 +68,10 @@ router.post("/profile", async (req, res) => {
    AVAILABILITY
 ========================= */
 
-router.post("/availability", async (req, res) => {
+router.post("/availability", authenticateToken, async (req, res) => {
   const { alumni_id, date, start_time, end_time } = req.body;
 
-  const stmt = db.prepare(`
+  const stmt = await db.prepare(`
     INSERT INTO availability (alumni_id, date, start_time, end_time)
     VALUES (?, ?, ?, ?)
   `);
@@ -79,8 +80,8 @@ router.post("/availability", async (req, res) => {
   res.json({ message: "Availability added" });
 });
 
-router.get("/availability/:alumniId", async (req, res) => {
-  const rowsStmt = db.prepare(`
+router.get("/availability/:alumniId", authenticateToken, async (req, res) => {
+  const rowsStmt = await db.prepare(`
     SELECT availability_id, date, start_time, end_time
     FROM availability
     WHERE alumni_id=?
@@ -95,8 +96,8 @@ router.get("/availability/:alumniId", async (req, res) => {
    PENDING REQUESTS
 ========================= */
 
-router.get("/requests/:alumniId", async (req, res) => {
-  const rowsStmt = db.prepare(`
+router.get("/requests/:alumniId", authenticateToken, async (req, res) => {
+  const rowsStmt = await db.prepare(`
     SELECT b.booking_id,
            u.name AS student_name,
            a.date, a.start_time, a.end_time,
@@ -115,12 +116,12 @@ router.get("/requests/:alumniId", async (req, res) => {
    APPROVE / REJECT REQUEST
 ========================= */
 
-router.post("/requests/update", async (req, res) => {
+router.post("/requests/update", authenticateToken, async (req, res) => {
   const { booking_id, status, availability_id } = req.body;
 
   if (status === "approved") {
     // 1️⃣ get slot details before deleting availability
-    const slotStmt = db.prepare(`
+    const slotStmt = await db.prepare(`
       SELECT date, start_time, end_time
       FROM availability
       WHERE availability_id=?
@@ -137,7 +138,7 @@ router.post("/requests/update", async (req, res) => {
       .substring(2, 7)}`;
 
     // 3️⃣ update booking with slot + meet link
-    const updateStmt = db.prepare(`
+    const updateStmt = await db.prepare(`
     UPDATE bookings
     SET status='approved',
         date=?,
@@ -155,11 +156,11 @@ router.post("/requests/update", async (req, res) => {
     );
 
     // 4️⃣ delete availability so it cannot be reused
-    const deleteStmt = db.prepare('DELETE FROM availability WHERE availability_id=?');
+    const deleteStmt = await db.prepare('DELETE FROM availability WHERE availability_id=?');
     deleteStmt.run(availability_id);
   } else {
     // rejected
-    const updateStmt = db.prepare('UPDATE bookings SET status=? WHERE booking_id=?');
+    const updateStmt = await db.prepare('UPDATE bookings SET status=? WHERE booking_id=?');
     updateStmt.run(status, booking_id);
   }
 
@@ -170,8 +171,8 @@ router.post("/requests/update", async (req, res) => {
    UPCOMING SESSIONS
 ========================= */
 
-router.get("/upcoming/:alumniId", async (req, res) => {
-  const rowsStmt = db.prepare(`
+router.get("/upcoming/:alumniId", authenticateToken, async (req, res) => {
+  const rowsStmt = await db.prepare(`
     SELECT b.booking_id,
            u.name AS student_name,
            b.date, b.start_time, b.end_time
@@ -190,10 +191,10 @@ router.get("/upcoming/:alumniId", async (req, res) => {
    COMPLETE SESSION
 ========================= */
 
-router.post("/sessions/complete", async (req, res) => {
+router.post("/sessions/complete", authenticateToken, async (req, res) => {
   const { booking_id } = req.body;
 
-  const stmt = db.prepare(`
+  const stmt = await db.prepare(`
     UPDATE bookings
     SET status='completed'
     WHERE booking_id=?
@@ -207,16 +208,16 @@ router.post("/sessions/complete", async (req, res) => {
    ALUMNI DASHBOARD STATS
 ========================= */
 
-router.get("/dashboard/:alumniId", async (req, res) => {
+router.get("/dashboard/:alumniId", authenticateToken, async (req, res) => {
   const alumniId = req.params.alumniId;
 
-  const pendingStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const pendingStmt = await db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
   const pending = pendingStmt.get(alumniId, 'pending');
 
-  const upcomingStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const upcomingStmt = await db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
   const upcoming = upcomingStmt.get(alumniId, 'approved');
 
-  const completedStmt = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
+  const completedStmt = await db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE alumni_id=? AND status=?');
   const completed = completedStmt.get(alumniId, 'completed');
 
   res.json({

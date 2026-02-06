@@ -25,34 +25,22 @@ router.post("/register", async (req, res) => {
 
   try {
     // 1️⃣ Insert user
-    const [result] = await db.query(
-      "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
-      [name, email, hash, role]
-    );
+    const stmt = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
+    const result = stmt.run(name, email, hash, role);
 
     // ✅ FIX: define userId
-    const userId = result.insertId;
+    const userId = result.lastInsertRowid;
 
     // 2️⃣ Student profile
     if (role === "student") {
-      await db.query(
-        `
-        INSERT INTO student_profile (student_id, skills, interests)
-        VALUES (?, ?, ?)
-        `,
-        [userId, skills, interests]
-      );
+      const stmt = db.prepare('INSERT INTO student_profile (student_id, skills, interests) VALUES (?, ?, ?)');
+      stmt.run(userId, skills, interests);
     }
 
     // 3️⃣ Alumni profile (WITH registration data)
     if (role === "alumni") {
-      await db.query(
-        `
-        INSERT INTO alumni_profile (alumni_id, domain, company, expertise)
-        VALUES (?, ?, ?, ?)
-        `,
-        [userId, domain, company, expertise]
-      );
+      const stmt = db.prepare('INSERT INTO alumni_profile (alumni_id, domain, company, expertise) VALUES (?, ?, ?, ?)');
+      stmt.run(userId, domain, company, expertise);
     }
 
     res.status(201).json({
@@ -73,10 +61,8 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [[user]] = await db.query(
-      "SELECT * FROM users WHERE email = ?",
-      [email]
-    );
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const user = stmt.get(email);
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });

@@ -1,7 +1,28 @@
 {
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "n8n": "^2.1.4"
+  "name": "reconnect-agenticai-platform",
+  "version": "1.0.0",
+  "description": "Full-stack mentorship platform with AI agents",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run preview",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": [
+    "mentorship",
+    "ai",
+    "agents",
+    "n8n",
+    "fullstack",
+    "react",
+    "express"
+  ],
+  "author": "REConnect Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
   }
 }

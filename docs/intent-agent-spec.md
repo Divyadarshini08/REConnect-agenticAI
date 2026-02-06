@@ -1,26 +1,25 @@
 # REConnect Intent Agent Specification
 
 ## Overview
-The Intent Agent is the first component of the REConnect multi-agent orchestration framework. It serves as the natural language processing interface that interprets student queries and converts them into structured, actionable requests for the system.
+The Intent Agent is the first component of the REConnect multi-agent orchestration framework. It serves as the query interpretation interface that analyzes student requests and matches them with relevant alumni based on keyword-based domain recognition from the database.
 
 ## Core Functionality
 
 ### Primary Responsibilities
-1. **Query Interpretation**: Understand and parse natural language student requests
-2. **Intent Classification**: Identify the type of help needed (career guidance, project help, internship advice, etc.)
-3. **Domain Recognition**: Extract and classify the subject domain (AI, Data Science, Software Engineering, etc.)
-4. **Entity Extraction**: Identify key entities and parameters from queries
-5. **Structured Output Generation**: Convert raw text into machine-readable format for downstream agents
+1. **Query Analysis**: Parse natural language student requests for domain keywords
+2. **Keyword Extraction**: Identify technical domains and skills from queries
+3. **Database Matching**: Search alumni profiles for keyword matches in expertise, domain, and description fields
+4. **Ranking Algorithm**: Sort matched alumni by relevance and availability
+5. **Structured Output Generation**: Convert matches into actionable format for downstream agents
 
 ### Technical Architecture
 
 #### Input Processing
 ```
 Student Query (Natural Language) 
-→ Text Preprocessing 
-→ Intent Classification 
-→ Domain Extraction 
-→ Entity Recognition 
+→ Keyword Extraction 
+→ Database Search 
+→ Relevance Ranking 
 → Structured Output
 ```
 
@@ -36,23 +35,33 @@ Student Query (Natural Language)
 #### Output Format
 ```json
 {
-  "intent": "mentorship_request",
-  "domain": "AI",
-  "confidence": 0.95,
-  "entities": {
-    "mentor_type": "industry_professional",
-    "specific_area": "AI",
-    "urgency": "standard"
-  },
-  "structured_query": {
-    "request_type": "mentorship",
-    "domain": "Artificial Intelligence",
-    "skills_required": ["machine learning", "deep learning"],
-    "experience_level": "intermediate"
-  },
+  "query": "I want guidance from someone working in AI",
+  "extracted_keywords": ["AI", "Artificial Intelligence", "Machine Learning"],
+  "matched_alumni": [
+    {
+      "alumni_id": 101,
+      "name": "John Smith",
+      "domain": "Artificial Intelligence",
+      "expertise": "Machine Learning, Deep Learning, Computer Vision",
+      "company": "TechCorp AI",
+      "relevance_score": 0.95,
+      "availability_count": 3
+    },
+    {
+      "alumni_id": 102,
+      "name": "Sarah Johnson",
+      "domain": "Data Science",
+      "expertise": "AI, Neural Networks, NLP",
+      "company": "DataTech Solutions",
+      "relevance_score": 0.87,
+      "availability_count": 1
+    }
+  ],
+  "total_matches": 2,
+  "processing_time_ms": 45,
   "routing_info": {
     "next_agent": "matchmaking_agent",
-    "priority": "medium"
+    "priority": "high"
   }
 }
 ```
@@ -60,197 +69,207 @@ Student Query (Natural Language)
 ## Implementation Requirements
 
 ### Technology Stack
-- **Primary NLP Engine**: OpenAI GPT API (GPT-4 or newer)
-- **Fallback Processing**: Local NLP models for basic intent classification
-- **Language Support**: English (primary), with potential for expansion
-- **Integration Method**: RESTful API endpoints
+- **Keyword Processing**: JavaScript string analysis and regex matching
+- **Database Integration**: SQLite database queries with LIKE operations
+- **Search Algorithm**: SQL-based fuzzy matching with keyword scoring
+- **Language Support**: English (primary), with keyword dictionary expansion
 
-### API Integration Details
+### Database Integration Details
 
-#### OpenAI GPT Configuration
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4-turbo
-OPENAI_TEMPERATURE=0.3
-OPENAI_MAX_TOKENS=500
+#### Alumni Profile Fields Used for Matching
+```sql
+-- Primary matching fields
+SELECT alumni_id, name, domain, expertise, company
+FROM alumni_profile 
+WHERE expertise LIKE '%keyword%' 
+   OR domain LIKE '%keyword%' 
+   OR company LIKE '%keyword%'
 ```
 
-#### Sample API Call Structure
+#### Keyword Dictionary Structure
 ```javascript
-const processQuery = async (query) => {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are an intent classification expert for a mentorship platform..."
-        },
-        {
-          role: "user",
-          content: query
-        }
-      ],
-      temperature: parseFloat(process.env.OPENAI_TEMPERATURE),
-      max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS)
-    })
-  });
-  
-  return response.json();
+const domainKeywords = {
+  "AI": ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Networks"],
+  "WebDev": ["Web Development", "React", "JavaScript", "Frontend", "Backend"],
+  "DataScience": ["Data Science", "Analytics", "Statistics", "Big Data", "Python"],
+  "Cybersecurity": ["Cybersecurity", "Network Security", "Information Security", "Encryption"],
+  "Cloud": ["Cloud Computing", "AWS", "Azure", "GCP", "DevOps"],
+  "UIUX": ["UI/UX", "User Interface", "User Experience", "Design", "Figma"]
 };
 ```
 
-### Intent Categories
+### Query Processing Algorithm
 
-#### Primary Intent Types
-1. **Mentorship Request** (`mentorship_request`)
-   - Career guidance
-   - Industry insights
-   - Professional development
-   - Skill development advice
+#### Keyword Extraction Process
+```javascript
+const extractKeywords = (query) => {
+  const normalizedQuery = query.toLowerCase();
+  const foundKeywords = [];
+  
+  // Check each domain category
+  Object.entries(domainKeywords).forEach(([category, keywords]) => {
+    keywords.forEach(keyword => {
+      if (normalizedQuery.includes(keyword.toLowerCase())) {
+        foundKeywords.push({
+          category: category,
+          keyword: keyword,
+          match_type: 'exact'
+        });
+      }
+    });
+  });
+  
+  return foundKeywords;
+};
+```
 
-2. **Project Help** (`project_help`)
-   - Technical assistance
-   - Code review requests
-   - Project planning guidance
-   - Implementation advice
+#### Database Search Implementation
+```javascript
+const searchAlumniByKeywords = async (keywords) => {
+  const matches = [];
+  
+  for (const keywordObj of keywords) {
+    const stmt = await db.prepare(`
+      SELECT u.user_id as alumni_id, u.name, ap.domain, ap.expertise, ap.company,
+             COUNT(av.availability_id) as availability_count
+      FROM users u
+      JOIN alumni_profile ap ON u.user_id = ap.alumni_id
+      LEFT JOIN availability av ON av.alumni_id = u.user_id AND av.is_booked = 0
+      WHERE (ap.expertise LIKE ? OR ap.domain LIKE ? OR ap.company LIKE ?)
+      GROUP BY u.user_id
+      ORDER BY COUNT(av.availability_id) DESC
+    `);
+    
+    const results = await stmt.all(
+      `%${keywordObj.keyword}%`, 
+      `%${keywordObj.keyword}%`, 
+      `%${keywordObj.keyword}%`
+    );
+    
+    results.forEach(result => {
+      matches.push({
+        ...result,
+        matched_keyword: keywordObj.keyword,
+        relevance_score: calculateRelevance(result, keywordObj)
+      });
+    });
+  }
+  
+  return deduplicateAndRank(matches);
+};
+```
 
-3. **Internship/Job Advice** (`career_advice`)
-   - Resume/CV guidance
-   - Interview preparation
-   - Job search strategies
-   - Application process help
-
-4. **Academic Guidance** (`academic_help`)
-   - Course selection advice
-   - Research guidance
-   - Academic planning
-   - Study strategies
-
-5. **Networking** (`networking`)
-   - Professional networking advice
-   - Industry connection requests
-   - Community building
-
-### Domain Classification System
+### Domain Categories
 
 #### Technical Domains
-- **Artificial Intelligence** (AI, Machine Learning, Deep Learning)
-- **Software Engineering** (Web Development, Mobile Apps, Backend)
-- **Data Science** (Analytics, Statistics, Big Data)
-- **Cybersecurity** (Network Security, Information Security)
-- **Cloud Computing** (AWS, Azure, GCP)
-- **DevOps** (CI/CD, Infrastructure, Automation)
+- **Artificial Intelligence** (AI, Machine Learning, Deep Learning, Neural Networks)
+- **Web Development** (React, JavaScript, Frontend, Backend, Full-stack)
+- **Data Science** (Analytics, Statistics, Big Data, Python, R)
+- **Cybersecurity** (Network Security, Information Security, Encryption)
+- **Cloud Computing** (AWS, Azure, GCP, DevOps, Infrastructure)
+- **UI/UX Design** (User Interface, User Experience, Design, Figma)
 
-#### Non-Technical Domains
-- **Business/Management**
-- **Marketing/Digital Marketing**
-- **Finance/Accounting**
-- **Design/UI/UX**
-- **Product Management**
-- **Entrepreneurship**
+#### Business Domains
+- **Product Management** (Product Strategy, Roadmapping, Analytics)
+- **Digital Marketing** (SEO, Content Marketing, Social Media)
+- **Finance** (Financial Analysis, Investment, Accounting)
+- **Entrepreneurship** (Startups, Business Development, Innovation)
 
 ## Error Handling & Fallbacks
 
 ### Error Scenarios
-1. **API Unavailability**: Fallback to local classification models
-2. **Low Confidence**: Request clarification from user
-3. **Ambiguous Queries**: Ask follow-up questions
-4. **Unsupported Domains**: Provide general guidance with escalation path
+1. **No Keywords Found**: Return general alumni suggestions
+2. **No Matches Found**: Suggest broadening search or manual browsing
+3. **Database Connection Issues**: Fallback to cached keyword mappings
+4. **Ambiguous Queries**: Ask for clarification with examples
 
-### Fallback Classification Logic
+### Fallback Logic
 ```javascript
-const fallbackClassification = (query) => {
-  const keywords = query.toLowerCase().split(' ');
-  
-  // Simple keyword-based classification
-  if (keywords.some(word => ['career', 'job', 'internship'].includes(word))) {
-    return { intent: 'career_advice', confidence: 0.7 };
-  }
-  
-  if (keywords.some(word => ['project', 'code', 'help'].includes(word))) {
-    return { intent: 'project_help', confidence: 0.7 };
-  }
-  
-  return { intent: 'general_inquiry', confidence: 0.5 };
+const handleNoMatches = (query) => {
+  return {
+    message: "No exact matches found. Here are some suggestions:",
+    suggestions: [
+      "Try being more specific about the technology or domain",
+      "Consider related fields (e.g., 'web development' instead of 'coding')",
+      "Browse all available alumni manually",
+      "Check popular mentorship categories"
+    ],
+    popular_categories: getPopularCategories()
+  };
 };
 ```
 
 ## Integration Points
 
-### With Orchestrator
-- Receives raw student queries from central controller
-- Returns structured intent data for routing decisions
-- Provides confidence scores for decision making
+### With Find Alumni Page
+- Receives navigation from student dashboard
+- Displays query input interface
+- Shows matching results with alumni profiles
+- Provides booking options for matched alumni
 
 ### With Matchmaking Agent
-- Supplies domain and skill requirements
-- Provides context for mentor matching
-- Sends urgency/priority information
+- Supplies ranked alumni list with relevance scores
+- Provides keyword context for detailed matching
+- Sends availability information
 
 ### With Scheduling Agent
-- Indicates preferred timing constraints
-- Provides session duration requirements
-- Supplies availability preferences
+- Indicates preferred alumni availability
+- Provides timing constraints from availability data
+- Supplies session preference information
 
 ## Performance Requirements
 
 ### Response Time Targets
-- **Primary API (OpenAI)**: < 2 seconds
-- **Fallback Processing**: < 500ms
-- **Overall System**: < 3 seconds
+- **Keyword Extraction**: < 10ms
+- **Database Search**: < 100ms
+- **Ranking Algorithm**: < 20ms
+- **Overall Processing**: < 200ms
 
-### Accuracy Metrics
-- **Intent Classification**: > 90% accuracy
-- **Domain Recognition**: > 85% accuracy
-- **Entity Extraction**: > 80% accuracy
+### Scalability Metrics
+- **Concurrent Queries**: Support 100+ simultaneous requests
+- **Database Size**: Efficient with 1000+ alumni profiles
+- **Memory Usage**: < 50MB for keyword processing
 
 ## Security Considerations
 
 ### Data Privacy
 - No storage of raw queries in production
-- Anonymization of user data
+- Anonymization of search patterns
 - Compliance with educational privacy regulations
 
-### Content Safety
-- Filtering of inappropriate content
-- Detection of malicious queries
-- Safe response generation
+### Query Safety
+- SQL injection prevention through prepared statements
+- Input sanitization for search terms
+- Rate limiting for excessive queries
 
 ## Testing Strategy
 
 ### Unit Tests
-- Intent classification accuracy
-- Domain recognition validation
-- Entity extraction verification
+- Keyword extraction accuracy
+- Database query performance
+- Ranking algorithm validation
 - Error handling scenarios
 
 ### Integration Tests
-- API connectivity and response handling
-- Orchestrator communication
-- Downstream agent integration
+- Database connectivity and response handling
+- End-to-end query processing
+- Frontend-backend communication
 - Fallback mechanism testing
 
 ### Performance Tests
 - Response time under load
-- Concurrent request handling
+- Concurrent user handling
+- Database query optimization
 - Memory usage monitoring
-- API rate limit handling
 
 ## Monitoring & Logging
 
 ### Key Metrics to Track
 - Query volume and patterns
-- Classification accuracy rates
-- API usage and costs
-- Error rates and types
-- Response time distributions
-- User satisfaction feedback
+- Match success rates
+- Average response times
+- Popular keyword searches
+- User engagement metrics
 
 ### Logging Structure
 ```json
@@ -258,10 +277,9 @@ const fallbackClassification = (query) => {
   "timestamp": "2024-01-15T10:30:00Z",
   "user_id": "student_123",
   "query": "I want AI mentorship",
-  "detected_intent": "mentorship_request",
-  "confidence": 0.92,
-  "processing_time_ms": 1250,
-  "api_used": "openai_gpt4",
+  "extracted_keywords": ["AI"],
+  "matches_found": 3,
+  "processing_time_ms": 45,
   "success": true
 }
 ```
@@ -269,15 +287,14 @@ const fallbackClassification = (query) => {
 ## Future Enhancements
 
 ### Planned Improvements
-1. **Multi-language Support**: Expand beyond English
-2. **Contextual Learning**: Remember user preferences and history
-3. **Advanced Entity Recognition**: Extract more detailed parameters
-4. **Sentiment Analysis**: Gauge urgency and emotional context
-5. **Voice Input Support**: Process spoken queries
-6. **Continuous Learning**: Improve classification based on feedback
+1. **Semantic Search**: Beyond exact keyword matching
+2. **Learning Algorithm**: Improve matching based on user feedback
+3. **Multi-language Support**: Expand keyword dictionaries
+4. **Contextual Understanding**: Consider student profile in matching
+5. **Real-time Updates**: Live availability integration
 
 ### Research Directions
-- Integration with institutional knowledge bases
-- Personalized intent understanding
-- Real-time learning from interactions
-- Cross-domain intent recognition
+- Integration with student skill assessments
+- Personalized matching algorithms
+- Predictive keyword suggestion
+- Cross-domain expertise recognition

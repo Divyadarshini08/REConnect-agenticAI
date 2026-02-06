@@ -7,7 +7,7 @@ import SimpleRegister from "./pages/auth/SimpleRegister";
 
 // Student pages
 import StudentDashboard from "./pages/student/StudentDashboard";
-import FindAlumni from "./pages/student/FindAlumni";
+import IntentAgentPage from "./pages/student/IntentAgentPage";
 import MySessions from "./pages/student/MySessions";
 import StudentProfile from "./pages/student/StudentProfile";
 import AlumniSlots from "./pages/student/AlumniSlots";
@@ -38,7 +38,7 @@ function App() {
 
         {/* Student */}
         <Route path="/student/dashboard" element={<StudentDashboard />} />
-        <Route path="/student/find-alumni" element={<FindAlumni />} />
+        <Route path="/student/find-alumni" element={<IntentAgentPage />} />
         <Route path="/student/my-sessions" element={<MySessions />} />
         <Route path="/student/profile" element={<StudentProfile />} />
         <Route path="/student/alumni/:alumniId" element={<AlumniSlots />} />

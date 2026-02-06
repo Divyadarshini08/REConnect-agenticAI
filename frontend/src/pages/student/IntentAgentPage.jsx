@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   DOMAIN_KEYWORDS,
   EXAMPLE_QUERIES,
-  PROFESSIONAL_COLORS,
-  ANIMATION_TIMINGS,
   AVAILABILITY_STATUS
 } from "../../constants/intentAgentData";
 
@@ -52,7 +50,7 @@ const IntentAgentPage = () => {
   const [query, setQuery] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState([]);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState({ text: "", type: "" });
   const [showExamples, setShowExamples] = useState(true);
   const [examples, setExamples] = useState(EXAMPLE_QUERIES);
   const [keywords, setKeywords] = useState([]);
@@ -78,12 +76,12 @@ const IntentAgentPage = () => {
 
   const handleQuerySubmit = async () => {
     if (!query.trim()) {
-      setError("Please enter a detailed query about your mentoring needs");
+      showMessage("Please enter a detailed query about your mentoring needs", "error");
       return;
     }
 
     setIsProcessing(true);
-    setError("");
+    setMessage({ text: "", type: "" });
     setShowExamples(false);
     setResults([]);
     setKeywords([]);
@@ -96,13 +94,15 @@ const IntentAgentPage = () => {
         setKeywords(response.keywords || []);
         
         if (response.matches && response.matches.length === 0) {
-          setError(response.message || "No matching mentors found. Try different keywords or browse our expertise areas.");
+          showMessage(response.message || "No matching mentors found. Try different keywords or browse our expertise areas.", "warning");
+        } else if (response.matches && response.matches.length > 0) {
+          showMessage(`Found ${response.matches.length} matching mentors!`, "success");
         }
       } else {
-        setError(response.message || "Unable to process your request. Please try again.");
+        showMessage(response.message || "Unable to process your request. Please try again.", "error");
       }
     } catch (err) {
-      setError("Network error: Unable to connect to the mentoring service");
+      showMessage("Network error: Unable to connect to the mentoring service", "error");
       console.error("API error:", err);
     } finally {
       setIsProcessing(false);
@@ -112,7 +112,7 @@ const IntentAgentPage = () => {
   const handleExampleClick = (exampleQuery) => {
     setQuery(exampleQuery);
     setShowExamples(false);
-    setError("");
+    setMessage({ text: "", type: "" });
   };
 
   const handleViewProfile = (alumniId) => {
@@ -122,15 +122,16 @@ const IntentAgentPage = () => {
   const handleReset = () => {
     setQuery("");
     setResults([]);
-    setError("");
+    setMessage({ text: "", type: "" });
     setKeywords([]);
     setShowExamples(true);
   };
 
-  const getAvailabilityColor = (availabilityCount) => {
-    if (availabilityCount >= 5) return PROFESSIONAL_COLORS.SUCCESS;
-    if (availabilityCount >= 2) return PROFESSIONAL_COLORS.WARNING;
-    return PROFESSIONAL_COLORS.DANGER;
+  const showMessage = (text, type) => {
+    setMessage({ text, type });
+    if (type !== "error") {
+      setTimeout(() => setMessage({ text: "", type: "" }), 5000);
+    }
   };
 
   const getAvailabilityStatus = (availabilityCount) => {
@@ -144,40 +145,15 @@ const IntentAgentPage = () => {
     if (keywords.length === 0) return null;
     
     return (
-      <div style={{ 
-        marginBottom: "25px", 
-        padding: "20px", 
-        backgroundColor: `${PROFESSIONAL_COLORS.PRIMARY}08`,
-        borderRadius: "12px",
-        border: `1px solid ${PROFESSIONAL_COLORS.PRIMARY}20`
-      }}>
-        <h4 style={{ 
-          margin: "0 0 15px 0", 
-          color: PROFESSIONAL_COLORS.PRIMARY,
-          fontSize: "18px",
-          fontWeight: "600"
-        }}>
-          🔍 Detected Expertise Areas:
-        </h4>
-        <div style={{ 
-          display: "flex", 
-          flexWrap: "wrap", 
-          gap: "12px" 
-        }}>
+      <div className="card mb-lg">
+        <h3 className="card-title mb-md">🔍 Detected Expertise Areas</h3>
+        <div className="flex flex-wrap gap-md">
           {keywords.map((kw, index) => (
             <span 
               key={index}
-              style={{
-                background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-                color: "white",
-                padding: "8px 16px",
-                borderRadius: "20px",
-                fontSize: "14px",
-                fontWeight: "500",
-                boxShadow: "0 2px 8px rgba(37, 99, 235, 0.2)"
-              }}
+              className="badge badge-primary"
             >
-              {kw.term} <span style={{ opacity: 0.8, fontSize: "12px" }}>({kw.type})</span>
+              {kw.term} <span className="text-tertiary" style={{ fontSize: "0.8em" }}>({kw.type})</span>
             </span>
           ))}
         </div>
@@ -186,151 +162,77 @@ const IntentAgentPage = () => {
   };
 
   return (
-    <div className="page" style={{ 
-      background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.BACKGROUND}, #e2e8f0)`,
-      minHeight: "100vh",
-      padding: "20px 0"
-    }}>
-      <div style={{ 
-        maxWidth: "1200px", 
-        margin: "0 auto",
-        padding: "0 20px"
-      }}>
+    <div className="page">
         {/* Header Section */}
-        <div style={{ 
-          textAlign: "center", 
-          marginBottom: "40px",
-          padding: "30px",
-          background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.CARD_BG}, #f1f5f9)`,
-          borderRadius: "16px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)"
-        }}>
-          <div style={{ 
-            fontSize: "48px", 
-            marginBottom: "15px",
-            background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            fontWeight: "800"
-          }}>
-            🤖 AI Mentor Matching
-          </div>
-          <p style={{ 
-            fontSize: "20px", 
-            color: PROFESSIONAL_COLORS.TEXT_SECONDARY,
-            maxWidth: "700px",
-            margin: "0 auto",
-            lineHeight: "1.6"
-          }}>
+        <div className="page-header text-center mb-xl">
+          <h1 className="page-title mb-sm">🤖 AI Mentor Matching</h1>
+          <p className="page-subtitle" style={{ maxWidth: "700px", margin: "0 auto" }}>
             Connect with industry experts who match your specific learning goals and career aspirations
           </p>
         </div>
 
         {/* Search Section */}
-        <div style={{
-          background: PROFESSIONAL_COLORS.CARD_BG,
-          borderRadius: "16px",
-          padding: "30px",
-          marginBottom: "30px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
-          border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`
-        }}>
-          <div style={{ 
-            display: "flex", 
-            gap: "15px", 
-            marginBottom: "25px",
-            flexWrap: "wrap"
-          }}>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Describe your mentoring needs, skills you want to develop, or career guidance you're seeking..."
-              className="form-input"
-              style={{ 
-                flex: 1, 
-                padding: "18px 24px", 
-                fontSize: "16px",
-                borderRadius: "12px",
-                border: `2px solid ${PROFESSIONAL_COLORS.BACKGROUND}`,
-                minWidth: "300px"
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && handleQuerySubmit()}
-              disabled={isProcessing}
-            />
-            <button
-              className="primary"
-              onClick={handleQuerySubmit}
-              disabled={isProcessing}
-              style={{ 
-                padding: "18px 32px", 
-                fontSize: "16px",
-                borderRadius: "12px",
-                background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-                border: "none",
-                color: "white",
-                fontWeight: "600",
-                cursor: isProcessing ? "not-allowed" : "pointer",
-                opacity: isProcessing ? 0.7 : 1
-              }}
-            >
-              {isProcessing ? "🔍 Analyzing..." : "🔍 Find Mentors"}
-            </button>
+        <div className="card mb-xl">
+          <div className="form-group mb-lg">
+            <label className="form-label">Describe your mentoring needs</label>
+            <div className="flex gap-md flex-wrap">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Describe your mentoring needs, skills you want to develop, or career guidance you're seeking..."
+                className="form-input"
+                style={{ flex: 1, minWidth: "300px" }}
+                onKeyPress={(e) => e.key === 'Enter' && handleQuerySubmit()}
+                disabled={isProcessing}
+              />
+              <button
+                className={`btn btn-primary ${isProcessing ? "disabled" : ""}`}
+                onClick={handleQuerySubmit}
+                disabled={isProcessing}
+                style={{ minWidth: "160px" }}
+              >
+                {isProcessing ? (
+                  <>
+                    <span className="loading"></span>
+                    Analyzing...
+                  </>
+                ) : (
+                  "🔍 Find Mentors"
+                )}
+              </button>
+            </div>
           </div>
 
-          {error && (
-            <div style={{ 
-              padding: "20px", 
-              borderRadius: "12px", 
-              marginBottom: "25px",
-              background: "#fee2e2",
-              border: "1px solid #fecaca",
-              color: "#991b1b"
-            }}>
-              {error}
+          {message.text && (
+            <div className={`alert alert-${message.type} mb-lg`}>
+              {message.text}
             </div>
           )}
 
           {/* Example Queries */}
           {showExamples && (
-            <div style={{ marginTop: "25px" }}>
-              <h3 style={{ 
-                marginBottom: "20px", 
-                color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
-                fontSize: "20px",
-                fontWeight: "600"
-              }}>
-                💡 Popular Mentoring Requests:
-              </h3>
-              <div style={{ 
-                display: "grid", 
-                gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", 
-                gap: "15px" 
-              }}>
+            <div className="mt-lg">
+              <h3 className="mb-md">💡 Popular Mentoring Requests</h3>
+              <div className="grid">
                 {examples.map((example, index) => (
                   <button
                     key={index}
                     onClick={() => handleExampleClick(example)}
-                    style={{ 
-                      padding: "20px", 
-                      textAlign: "left", 
-                      fontSize: "15px",
-                      background: PROFESSIONAL_COLORS.BACKGROUND,
-                      border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`,
-                      borderRadius: "12px",
+                    className="card text-left"
+                    style={{
                       cursor: "pointer",
-                      transition: ANIMATION_TIMINGS.CARD_HOVER,
-                      color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
+                      transition: "all var(--transition-fast)",
                       height: "auto",
                       lineHeight: "1.5"
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.1)";
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "var(--shadow-lg)";
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow = "none";
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "var(--shadow-md)";
                     }}
                   >
                     "{example}"
@@ -343,49 +245,12 @@ const IntentAgentPage = () => {
 
         {/* Results Section */}
         {results.length > 0 && (
-          <div style={{
-            background: PROFESSIONAL_COLORS.CARD_BG,
-            borderRadius: "16px",
-            padding: "30px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
-            border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`
-          }}>
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "space-between", 
-              alignItems: "center", 
-              marginBottom: "25px",
-              flexWrap: "wrap",
-              gap: "15px"
-            }}>
-              <h2 style={{ 
-                margin: 0,
-                color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
-                fontSize: "24px",
-                fontWeight: "700"
-              }}>
-                🎯 Found {results.length} Matching Mentors
-              </h2>
+          <div className="card">
+            <div className="flex justify-between items-center mb-lg flex-wrap gap-md">
+              <h2 className="mb-0">🎯 Found {results.length} Matching Mentors</h2>
               <button 
                 onClick={handleReset}
-                style={{ 
-                  padding: "12px 24px",
-                  background: "transparent",
-                  border: `2px solid ${PROFESSIONAL_COLORS.SECONDARY}`,
-                  color: PROFESSIONAL_COLORS.SECONDARY,
-                  borderRadius: "8px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = PROFESSIONAL_COLORS.SECONDARY;
-                  e.target.style.color = "white";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "transparent";
-                  e.target.style.color = PROFESSIONAL_COLORS.SECONDARY;
-                }}
+                className="btn btn-outline"
               >
                 New Search
               </button>
@@ -393,134 +258,69 @@ const IntentAgentPage = () => {
             
             {renderKeywords()}
             
-            <div style={{ 
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
-              gap: "25px"
-            }}>
+            <div className="grid">
               {results.map((alumni, index) => (
                 <div 
                   key={alumni.id} 
-                  style={{ 
-                    background: PROFESSIONAL_COLORS.CARD_BG,
-                    borderRadius: "16px",
-                    padding: "25px",
+                  className="card"
+                  style={{
                     position: "relative",
-                    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
-                    border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`,
-                    animation: `fadeInUp ${ANIMATION_TIMINGS.FADE_IN} ${index * 0.1}s both`,
-                    transition: ANIMATION_TIMINGS.CARD_HOVER
+                    transition: "all var(--transition-normal)",
+                    cursor: "pointer"
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.transform = "translateY(-4px)";
-                    e.target.style.boxShadow = "0 12px 32px rgba(0, 0, 0, 0.15)";
+                    e.currentTarget.style.transform = "translateY(-4px)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-xl)";
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.08)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-lg)";
                   }}
                 >
                   {/* Match Score Badge */}
-                  <div style={{ 
-                    position: "absolute", 
-                    top: "20px", 
-                    right: "20px",
-                    background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "20px",
-                    fontSize: "14px",
-                    fontWeight: "700",
-                    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)"
-                  }}>
+                  <div className="badge badge-primary" 
+                    style={{
+                      position: "absolute",
+                      top: "var(--spacing-md)",
+                      right: "var(--spacing-md)"
+                    }}>
                     {Math.round(alumni.relevanceScore * 100)}% Match
                   </div>
 
                   {/* Profile Header */}
-                  <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ 
-                      margin: "0 0 8px 0", 
-                      color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
-                      fontSize: "20px",
-                      fontWeight: "700"
-                    }}>
-                      {alumni.name}
-                    </h3>
-                    <p style={{ 
-                      margin: 0,
-                      color: PROFESSIONAL_COLORS.PRIMARY,
-                      fontSize: "16px",
-                      fontWeight: "600"
-                    }}>
-                      {alumni.domain} Expert
-                    </p>
+                  <div className="mb-lg">
+                    <h3 className="mb-xs">{alumni.name}</h3>
+                    <p className="text-primary font-medium mb-0">{alumni.domain} Expert</p>
                   </div>
 
                   {/* Profile Details */}
-                  <div style={{ marginBottom: "25px" }}>
-                    <div style={{ 
-                      display: "flex", 
-                      alignItems: "center", 
-                      marginBottom: "15px" 
-                    }}>
-                      <span style={{ 
-                        width: "8px", 
-                        height: "8px", 
-                        background: PROFESSIONAL_COLORS.SUCCESS,
-                        borderRadius: "50%",
-                        marginRight: "12px"
-                      }}></span>
-                      <p style={{ margin: 0, color: PROFESSIONAL_COLORS.TEXT_SECONDARY }}>
+                  <div className="mb-lg">
+                    <div className="flex items-center mb-sm">
+                      <span className="text-success mr-sm">●</span>
+                      <p className="text-secondary mb-0">
                         <strong>🏢 Company:</strong> {alumni.company}
                       </p>
                     </div>
                     
-                    <div style={{ marginBottom: "15px" }}>
-                      <p style={{ 
-                        margin: "0 0 8px 0", 
-                        color: PROFESSIONAL_COLORS.TEXT_SECONDARY,
-                        fontWeight: "600"
-                      }}>
+                    <div className="mb-sm">
+                      <p className="text-secondary font-medium mb-xs">
                         🔧 Core Expertise:
                       </p>
-                      <p style={{ 
-                        margin: 0, 
-                        color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
-                        lineHeight: "1.6"
-                      }}>
+                      <p className="mb-0">
                         {alumni.expertise}
                       </p>
                     </div>
 
-                    <div style={{ 
-                      display: "flex", 
-                      alignItems: "center",
-                      marginBottom: "15px"
-                    }}>
-                      <span style={{ 
-                        width: "8px", 
-                        height: "8px", 
-                        background: getAvailabilityColor(3), // Default value
-                        borderRadius: "50%",
-                        marginRight: "12px"
-                      }}></span>
-                      <p style={{ margin: 0, color: PROFESSIONAL_COLORS.TEXT_SECONDARY }}>
+                    <div className="flex items-center mb-sm">
+                      <span className="text-success mr-sm">●</span>
+                      <p className="text-secondary mb-0">
                         <strong>📅 Availability:</strong> {getAvailabilityStatus(3)}
                       </p>
                     </div>
 
                     {alumni.matchedKeywords && alumni.matchedKeywords.length > 0 && (
-                      <div style={{ 
-                        marginTop: "15px",
-                        padding: "12px",
-                        background: `${PROFESSIONAL_COLORS.PRIMARY}08`,
-                        borderRadius: "8px"
-                      }}>
-                        <p style={{ 
-                          margin: 0, 
-                          fontSize: "14px", 
-                          color: PROFESSIONAL_COLORS.TEXT_SECONDARY 
-                        }}>
+                      <div className="card" style={{ background: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                        <p className="text-secondary mb-0" style={{ fontSize: "0.875rem" }}>
                           <strong>🎯 Matched on:</strong> {alumni.matchedKeywords.map(kw => `"${kw.term}"`).join(', ')}
                         </p>
                       </div>
@@ -528,60 +328,22 @@ const IntentAgentPage = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div style={{ 
-                    display: "flex", 
-                    gap: "12px",
-                    flexWrap: "wrap"
-                  }}>
+                  <div className="flex gap-md flex-wrap">
                     <button
                       onClick={() => handleViewProfile(alumni.id)}
-                      style={{
-                        flex: 1,
-                        minWidth: "160px",
-                        padding: "14px 20px",
-                        background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-                        color: "white",
-                        border: "none",
-                        borderRadius: "10px",
-                        fontWeight: "600",
-                        fontSize: "15px",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.transform = "translateY(-2px)";
-                        e.target.style.boxShadow = "0 6px 16px rgba(37, 99, 235, 0.3)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.transform = "translateY(0)";
-                        e.target.style.boxShadow = "none";
-                      }}
+                      className="btn btn-primary flex-1"
+                      style={{ minWidth: "160px" }}
                     >
                       View Profile & Schedule
                     </button>
-                    
+                                      
                     {alumni.linkedin_url && (
                       <a
                         href={alumni.linkedin_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{
-                          padding: "14px 20px",
-                          background: PROFESSIONAL_COLORS.BACKGROUND,
-                          color: PROFESSIONAL_COLORS.TEXT_PRIMARY,
-                          textDecoration: "none",
-                          borderRadius: "10px",
-                          fontWeight: "600",
-                          fontSize: "15px",
-                          textAlign: "center",
-                          border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`,
-                          transition: "all 0.2s ease",
-                          minWidth: "120px"
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = PROFESSIONAL_COLORS.PRIMARY;
-                          e.target.style.color = "white";
-                        }}
+                        className="btn btn-outline text-center"
+                        style={{ minWidth: "120px" }}
                       >
                         LinkedIn
                       </a>
@@ -595,80 +357,26 @@ const IntentAgentPage = () => {
 
         {/* No Results Message */}
         {results.length === 0 && !isProcessing && !showExamples && (
-          <div style={{
-            background: PROFESSIONAL_COLORS.CARD_BG,
-            borderRadius: "16px",
-            padding: "50px 30px",
-            textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
-            border: `1px solid ${PROFESSIONAL_COLORS.BACKGROUND}`
-          }}>
+          <div className="card text-center py-xl">
             <div style={{ 
-              fontSize: "60px", 
-              marginBottom: "20px",
+              fontSize: "3rem", 
+              marginBottom: "var(--spacing-lg)",
               opacity: 0.6
             }}>
               🤔
             </div>
-            <h3 style={{ 
-              color: PROFESSIONAL_COLORS.TEXT_SECONDARY, 
-              marginBottom: "15px",
-              fontSize: "24px",
-              fontWeight: "600"
-            }}>
-              No matching mentors found
-            </h3>
-            <p style={{ 
-              color: PROFESSIONAL_COLORS.TEXT_SECONDARY, 
-              marginBottom: "25px",
-              fontSize: "16px",
-              maxWidth: "500px",
-              margin: "0 auto 25px"
-            }}>
+            <h3 className="mb-sm">No matching mentors found</h3>
+            <p className="text-secondary mb-lg" style={{ maxWidth: "500px", margin: "0 auto 25px" }}>
               Try using different keywords, or explore our expertise categories below
             </p>
             <button 
               onClick={handleReset}
-              style={{
-                padding: "14px 32px",
-                background: `linear-gradient(135deg, ${PROFESSIONAL_COLORS.PRIMARY}, ${PROFESSIONAL_COLORS.SECONDARY})`,
-                color: "white",
-                border: "none",
-                borderRadius: "10px",
-                fontWeight: "600",
-                fontSize: "16px",
-                cursor: "pointer",
-                transition: "all 0.2s ease"
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow = "0 6px 16px rgba(37, 99, 235, 0.3)";
-              }}
+              className="btn btn-primary"
             >
               Try Different Keywords
             </button>
           </div>
         )}
-      </div>
-
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .form-input:focus {
-          outline: none;
-          border-color: ${PROFESSIONAL_COLORS.PRIMARY};
-          box-shadow: 0 0 0 3px ${PROFESSIONAL_COLORS.PRIMARY}20;
-        }
-      `}</style>
     </div>
   );
 };

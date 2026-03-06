@@ -19,7 +19,7 @@ export const findMatchingAlumni = async (studentId) => {
       u.user_id AS alumni_id,
       u.name,
       a.company,
-      a.designation,
+      a.designation,o
       COUNT(av.availability_id) AS free_slots
     FROM users u
     JOIN alumni_profile a ON u.user_id = a.alumni_id
